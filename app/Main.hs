@@ -1,36 +1,27 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedLabels #-}
 module Main where
 
 import Reactive.Banana
 import Reactive.Banana.Gtk
 
-import Data.Maybe (fromJust)
 import Control.Exception (catch)
 import qualified Data.Text as T
-import Data.Text (Text)
-import Data.GI.Base.GError
-    ( gerrorMessage
-    , GError(..)
-    )
+
+import Data.GI.Base
 import qualified GI.Gtk as Gtk
-import Data.GI.Base.ManagedPtr (unsafeCastTo)
 import GI.Gtk
     ( mainQuit
     , widgetShowAll
     , onWidgetDestroy
     , builderAddFromFile
     , builderNew
-    , builderGetObject
     , Window(..)
     , onWidgetDestroy
-    , windowSetTitlebar
     , HeaderBar(..)
+    , Stack(..)
     )
-
-castB builder ident gtype =
-    builderGetObject builder ident
-        >>= unsafeCastTo gtype . fromJust
 
 runGtk = do
     Gtk.init Nothing
@@ -39,10 +30,15 @@ runGtk = do
 
     window <- castB builder "window" Window
     titlebar <- castB builder "headerbar" HeaderBar
-    windowSetTitlebar window (Just titlebar)
+    stack <- castB builder "stack" Stack
 
-    onWidgetDestroy window mainQuit
-    widgetShowAll window
+    on stack (PropertyNotify #visibleChildName) $ \p -> do
+        name <- get stack #visibleChildName
+        print name
+
+    on window #destroy mainQuit
+
+    #showAll window
     Gtk.main
 
 main :: IO ()
