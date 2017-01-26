@@ -1,27 +1,38 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE TypeFamilies #-}
 module Main where
 
 import Reactive.Banana
 import Reactive.Banana.Gtk
+import Reactive.Banana.Frameworks
 
 import Control.Exception (catch)
 import qualified Data.Text as T
 
-import Data.GI.Base
+import Data.Maybe (fromJust)
 import qualified GI.Gtk as Gtk
 import GI.Gtk
     ( mainQuit
-    , widgetShowAll
-    , onWidgetDestroy
     , builderAddFromFile
     , builderNew
     , Window(..)
-    , onWidgetDestroy
     , HeaderBar(..)
     , Stack(..)
+    , GError(..)
+    , get
+    , on
+    , gerrorMessage
     )
+
+printProp :: Stack -> IO ()
+printProp stack = print =<< fromJust <$> get stack #visibleChildName
+
+networkDescription :: Stack -> MomentIO ()
+networkDescription stack = do
+    pEvent <- propEvent stack #visibleChildName
+    reactimate $ (const $ printProp stack) <$> pEvent
 
 runGtk = do
     Gtk.init Nothing
@@ -29,16 +40,15 @@ runGtk = do
     builderAddFromFile builder "test.ui"
 
     window <- castB builder "window" Window
-    titlebar <- castB builder "headerbar" HeaderBar
+    headerBar <- castB builder "headerbar" HeaderBar
     stack <- castB builder "stack" Stack
 
-    on stack (PropertyNotify #visibleChildName) $ \p -> do
-        name <- get stack #visibleChildName
-        print name
-
     on window #destroy mainQuit
-
     #showAll window
+
+    network <- compile (networkDescription stack)
+    actuate network
+
     Gtk.main
 
 main :: IO ()
