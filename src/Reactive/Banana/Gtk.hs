@@ -23,26 +23,55 @@ import GI.Gtk
     )
 import Data.GI.Base.ManagedPtr (unsafeCastTo)
 
-castB :: (IsBuilder a, GObject o) => a -> Text -> (ForeignPtr o -> o) -> IO o
+castB
+    :: (IsBuilder a, GObject o, MonadIO m)
+    => a
+    -> Text
+    -> (ForeignPtr o -> o)
+    -> m o
 castB builder ident gtype =
-    builderGetObject builder ident
-        >>= unsafeCastTo gtype . fromJust
+    liftIO (builderGetObject builder ident
+        >>= unsafeCastTo gtype . fromJust)
 
 signalAddHandler
     ::
-        ( HaskellCallbackType info ~ (a -> IO ())
+        ( SignalInfo info
+        , GObject object
+        )
+    => object
+    -> SignalProxy object info
+    -> ((a -> IO ()) -> HaskellCallbackType info)
+    -> IO (AddHandler a)
+signalAddHandler object signal f = do
+    (addHandler, fire) <- newAddHandler
+    on object signal (f fire)
+    return addHandler
+
+signalEventN
+    ::
+        ( SignalInfo info
+        , GObject object
+        )
+    => object
+    -> SignalProxy object info
+    -> ((a -> IO ()) -> HaskellCallbackType info)
+    -> MomentIO (Event a)
+signalEventN object signal f = do
+    addHandler <- liftIO $ signalAddHandler object signal f
+    fromAddHandler addHandler
+
+signalEvent0
+    ::
+        ( HaskellCallbackType info ~ IO ()
         , SignalInfo info
         , GObject object
         )
     => object
     -> SignalProxy object info
-    -> IO (AddHandler a)
-signalAddHandler object signal = do
-    (addHandler, fire) <- newAddHandler
-    on object signal fire
-    return addHandler
+    -> MomentIO (Event ())
+signalEvent0 object signal =  signalEventN object signal ($ ())
 
-signalEvent
+signalEvent1
     ::
         ( HaskellCallbackType info ~ (a -> IO ())
         , SignalInfo info
@@ -51,8 +80,8 @@ signalEvent
     => object
     -> SignalProxy object info
     -> MomentIO (Event a)
-signalEvent object signal = do
-    addHandler <- liftIO $ signalAddHandler object signal
-    fromAddHandler addHandler
+signalEvent1 object signal = signalEventN object signal id
 
-propEvent object = signalEvent object . PropertyNotify
+propEvent object attr = do
+    e <- signalEventN object (PropertyNotify attr) id
+    (const $ get object attr) `mapEventIO` e

@@ -20,35 +20,38 @@ import GI.Gtk
     , Window(..)
     , HeaderBar(..)
     , Stack(..)
+    , Button(..)
     , GError(..)
     , get
     , on
     , gerrorMessage
+    , SignalProxy(..)
     )
 
-printProp :: Stack -> IO ()
-printProp stack = print =<< fromJust <$> get stack #visibleChildName
+doWhen f x = fmap (const f) x
 
-networkDescription :: Stack -> MomentIO ()
-networkDescription stack = do
-    pEvent <- propEvent stack #visibleChildName
-    reactimate $ (const $ printProp stack) <$> pEvent
-
-runGtk = do
-    Gtk.init Nothing
+networkDescription :: MomentIO ()
+networkDescription = do
     builder <- builderNew
     builderAddFromFile builder "test.ui"
 
     window <- castB builder "window" Window
-    headerBar <- castB builder "headerbar" HeaderBar
     stack <- castB builder "stack" Stack
+    button <- castB builder "back_button" Button
 
-    on window #destroy mainQuit
+    visibleE <- propEvent stack #visibleChildName
+    destroyE <- signalEvent0 window #destroy
+    pressedE <- signalEvent0 button #clicked
+
+    reactimate $ print <$> visibleE
+    reactimate $ mainQuit `doWhen` destroyE
+    reactimate $ print "pressed" `doWhen` pressedE
+
     #showAll window
 
-    network <- compile (networkDescription stack)
-    actuate network
-
+runGtk = do
+    Gtk.init Nothing
+    compile networkDescription >>= actuate
     Gtk.main
 
 main :: IO ()
