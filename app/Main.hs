@@ -5,7 +5,7 @@
 module Main where
 
 import Reactive.Banana
-import Reactive.Banana.Gtk
+import Reactive.Banana.GI.Gtk
 import Reactive.Banana.Frameworks
 
 import Control.Exception (catch)
@@ -33,21 +33,21 @@ doWhen f x = fmap (const f) x
 
 networkDescription :: MomentIO ()
 networkDescription = do
-    builder <- builderNew
-    builderAddFromFile builder "test.ui"
+    b <- builderNew
+    builderAddFromFile b "test.ui"
 
-    window <- castB builder "window" Window
-    destroyE <- signalEvent0 window #destroy
+    window <- castB b "window" Window
+    destroyE <- signalE0 window #destroy
     reactimate $ mainQuit `doWhen` destroyE
 
-    stack <- castB builder "stack" Stack
-    visibleB <- propBehavior stack #visibleChildName
+    stack <- castB b "stack" Stack
+    visibleB <- propB stack #visibleChildName
 
-    button <- castB builder "back_button" Button
-    pressedE <- signalEvent0 button #clicked
+    button <- castB b "back_button" Button
+    pressedE <- signalE0 button #clicked
 
-    downloadedLabel <- castB builder "download_count" Label
-    searchedLabel <- castB builder "search_count" Label
+    downloadedLabel <- castB b "download_count" Label
+    searchedLabel <- castB b "search_count" Label
 
     let onPage b s = maybe False (== s) <$> b
         searched = whenE (visibleB `onPage` "search") pressedE

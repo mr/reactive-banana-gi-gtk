@@ -1,7 +1,18 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
-module Reactive.Banana.Gtk where
+
+module Reactive.Banana.GI.Gtk
+    ( BuilderCastException(..)
+    , castB
+    , signalAddHandler
+    , signalEN
+    , signalE0
+    , signalE1
+    , propE
+    , propB
+    , sink
+    ) where
 
 import Reactive.Banana
 import Reactive.Banana.Frameworks
@@ -72,7 +83,7 @@ signalAddHandler self signal f = do
     on self signal (f fire)
     return addHandler
 
-signalEventN
+signalEN
     ::
         ( SignalInfo info
         , GObject self
@@ -81,11 +92,11 @@ signalEventN
     -> SignalProxy self info
     -> ((a -> IO ()) -> HaskellCallbackType info)
     -> MomentIO (Event a)
-signalEventN self signal f = do
+signalEN self signal f = do
     addHandler <- liftIO $ signalAddHandler self signal f
     fromAddHandler addHandler
 
-signalEvent0
+signalE0
     ::
         ( HaskellCallbackType info ~ IO ()
         , SignalInfo info
@@ -94,9 +105,9 @@ signalEvent0
     => self
     -> SignalProxy self info
     -> MomentIO (Event ())
-signalEvent0 self signal =  signalEventN self signal ($ ())
+signalE0 self signal =  signalEN self signal ($ ())
 
-signalEvent1
+signalE1
     ::
         ( HaskellCallbackType info ~ (a -> IO ())
         , SignalInfo info
@@ -105,14 +116,14 @@ signalEvent1
     => self
     -> SignalProxy self info
     -> MomentIO (Event a)
-signalEvent1 self signal = signalEventN self signal id
+signalE1 self signal = signalEN self signal id
 
-propEvent self attr = do
-    e <- signalEventN self (PropertyNotify attr) id
+propE self attr = do
+    e <- signalEN self (PropertyNotify attr) id
     (const $ get self attr) `mapEventIO` e
 
-propBehavior self attr = do
-    e <- propEvent self attr
+propB self attr = do
+    e <- propE self attr
     initV <- get self attr
     stepper initV e
 
