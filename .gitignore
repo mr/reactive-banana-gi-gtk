@@ -1,1 +1,6 @@
 .stack-work
+
+# glade crap
+# looks like emacs convention
+\#*#
+*.ui~
