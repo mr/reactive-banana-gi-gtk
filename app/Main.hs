@@ -21,6 +21,7 @@ import GI.Gtk
     , HeaderBar(..)
     , Stack(..)
     , Button(..)
+    , Label(..)
     , GError(..)
     , get
     , on
@@ -36,16 +37,28 @@ networkDescription = do
     builderAddFromFile builder "test.ui"
 
     window <- castB builder "window" Window
-    stack <- castB builder "stack" Stack
-    button <- castB builder "back_button" Button
-
-    visibleE <- propEvent stack #visibleChildName
     destroyE <- signalEvent0 window #destroy
+    reactimate $ mainQuit `doWhen` destroyE
+
+    stack <- castB builder "stack" Stack
+    visibleB <- propBehavior stack #visibleChildName
+
+    button <- castB builder "back_button" Button
     pressedE <- signalEvent0 button #clicked
 
-    reactimate $ print <$> visibleE
-    reactimate $ mainQuit `doWhen` destroyE
-    reactimate $ print "pressed" `doWhen` pressedE
+    downloadedLabel <- castB builder "download_count" Label
+    searchedLabel <- castB builder "search_count" Label
+
+    let onPage b s = maybe False (== s) <$> b
+        searched = whenE (visibleB `onPage` "search") pressedE
+        downloaded = whenE (visibleB `onPage` "downloads") pressedE
+
+    let countE e = accumB (0 :: Int) ((+ 1) <$ e)
+    searchCount <- countE searched
+    downloadCount <- countE downloaded
+
+    sink searchedLabel #label $ (T.pack . show) <$> searchCount
+    sink downloadedLabel #label $ (T.pack . show) <$> downloadCount
 
     #showAll window
 

@@ -1,10 +1,13 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ExistentialQuantification #-}
 module Reactive.Banana.Gtk where
 
 import Reactive.Banana
 import Reactive.Banana.Frameworks
 
+import Data.Typeable
+import Control.Exception
 import Control.Monad.IO.Class
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
@@ -12,8 +15,21 @@ import Data.Text (Text)
 import GHC.ForeignPtr (ForeignPtr(..))
 
 import Data.GI.Base
+import Data.GI.Base.Attributes
+    ( AttrLabelProxy(..)
+    , AttrInfo(..)
+    , AttrLabel(..)
+    , AttrGetC(..)
+    )
+
+import Data.GI.Base.Overloading
+    ( ResolveAttribute(..)
+    , HasAttributeList(..)
+    )
+
 import Data.GI.Base.Signals
     ( SignalInfo(..)
+    , GObjectNotifySignalInfo(..)
     )
 import GI.Gtk
     ( GObject
@@ -23,6 +39,11 @@ import GI.Gtk
     )
 import Data.GI.Base.ManagedPtr (unsafeCastTo)
 
+data BuilderCastException = UnknownIdException String
+    deriving (Show, Typeable)
+
+instance Exception BuilderCastException
+
 castB
     :: (IsBuilder a, GObject o, MonadIO m)
     => a
@@ -30,58 +51,73 @@ castB
     -> (ForeignPtr o -> o)
     -> m o
 castB builder ident gtype =
-    liftIO (builderGetObject builder ident
-        >>= unsafeCastTo gtype . fromJust)
+    liftIO $ do
+        o <- builderGetObject builder ident
+        case o of
+            Just a -> unsafeCastTo gtype a
+            Nothing ->
+                throw $ UnknownIdException $ T.unpack ident
 
 signalAddHandler
     ::
         ( SignalInfo info
-        , GObject object
+        , GObject self
         )
-    => object
-    -> SignalProxy object info
+    => self
+    -> SignalProxy self info
     -> ((a -> IO ()) -> HaskellCallbackType info)
     -> IO (AddHandler a)
-signalAddHandler object signal f = do
+signalAddHandler self signal f = do
     (addHandler, fire) <- newAddHandler
-    on object signal (f fire)
+    on self signal (f fire)
     return addHandler
 
 signalEventN
     ::
         ( SignalInfo info
-        , GObject object
+        , GObject self
         )
-    => object
-    -> SignalProxy object info
+    => self
+    -> SignalProxy self info
     -> ((a -> IO ()) -> HaskellCallbackType info)
     -> MomentIO (Event a)
-signalEventN object signal f = do
-    addHandler <- liftIO $ signalAddHandler object signal f
+signalEventN self signal f = do
+    addHandler <- liftIO $ signalAddHandler self signal f
     fromAddHandler addHandler
 
 signalEvent0
     ::
         ( HaskellCallbackType info ~ IO ()
         , SignalInfo info
-        , GObject object
+        , GObject self
         )
-    => object
-    -> SignalProxy object info
+    => self
+    -> SignalProxy self info
     -> MomentIO (Event ())
-signalEvent0 object signal =  signalEventN object signal ($ ())
+signalEvent0 self signal =  signalEventN self signal ($ ())
 
 signalEvent1
     ::
         ( HaskellCallbackType info ~ (a -> IO ())
         , SignalInfo info
-        , GObject object
+        , GObject self
         )
-    => object
-    -> SignalProxy object info
+    => self
+    -> SignalProxy self info
     -> MomentIO (Event a)
-signalEvent1 object signal = signalEventN object signal id
+signalEvent1 self signal = signalEventN self signal id
 
-propEvent object attr = do
-    e <- signalEventN object (PropertyNotify attr) id
-    (const $ get object attr) `mapEventIO` e
+propEvent self attr = do
+    e <- signalEventN self (PropertyNotify attr) id
+    (const $ get self attr) `mapEventIO` e
+
+propBehavior self attr = do
+    e <- propEvent self attr
+    initV <- get self attr
+    stepper initV e
+
+sink self attr b = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr := x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr := x]) <$> e
