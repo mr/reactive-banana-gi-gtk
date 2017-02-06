@@ -50,11 +50,17 @@ import GI.Gtk
     )
 import Data.GI.Base.ManagedPtr (unsafeCastTo)
 
+-- | Thown when 'castB' fails get an object
 data BuilderCastException = UnknownIdException String
     deriving (Show, Typeable)
 
 instance Exception BuilderCastException
 
+-- | Shortcut for getting 'Data.GI.Base.GObject' from a Builder
+--
+-- @
+-- stack <- castB builder "stack" Stack
+-- @
 castB
     :: (IsBuilder a, GObject o, MonadIO m)
     => a
@@ -83,6 +89,8 @@ signalAddHandler self signal f = do
     on self signal (f fire)
     return addHandler
 
+-- | Create an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Signals.SignalProxy'. For making signalE# functions.
 signalEN
     ::
         ( SignalInfo info
@@ -96,6 +104,12 @@ signalEN self signal f = do
     addHandler <- liftIO $ signalAddHandler self signal f
     fromAddHandler addHandler
 
+-- | Get an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Signals.SignalProxy' that produces nothing.
+--
+-- @
+-- destroyE <- signalE1 window #destroy
+-- @
 signalE0
     ::
         ( HaskellCallbackType info ~ IO ()
@@ -107,6 +121,8 @@ signalE0
     -> MomentIO (Event ())
 signalE0 self signal =  signalEN self signal ($ ())
 
+-- | Get an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Signals.SignalProxy' that produces one argument.
 signalE1
     ::
         ( HaskellCallbackType info ~ (a -> IO ())
@@ -118,10 +134,13 @@ signalE1
     -> MomentIO (Event a)
 signalE1 self signal = signalEN self signal id
 
+-- | Get an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Attributes.AttrLabelProxy' that produces one argument.
 propE self attr = do
     e <- signalEN self (PropertyNotify attr) id
     (const $ get self attr) `mapEventIO` e
 
+-- | stepper on 'propE'
 propB self attr = do
     e <- propE self attr
     initV <- get self attr

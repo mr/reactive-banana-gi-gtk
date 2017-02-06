@@ -2,6 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLabels #-}
 {-# LANGUAGE TypeFamilies #-}
+
 module Main where
 
 import Reactive.Banana
@@ -9,6 +10,7 @@ import Reactive.Banana.GI.Gtk
 import Reactive.Banana.Frameworks
 
 import Control.Exception (catch)
+import Data.Text (Text)
 import qualified Data.Text as T
 
 import Data.Maybe (fromJust)
@@ -31,6 +33,15 @@ import GI.Gtk
 
 doWhen f x = fmap (const f) x
 
+data StackPage = Search | Downloads
+
+instance Show StackPage where
+    show Search = "search"
+    show Downloads = "downloads"
+
+showT :: Show a => a -> Text
+showT = T.pack . show
+
 networkDescription :: MomentIO ()
 networkDescription = do
     b <- builderNew
@@ -49,16 +60,16 @@ networkDescription = do
     downloadedLabel <- castB b "download_count" Label
     searchedLabel <- castB b "search_count" Label
 
-    let onPage b s = maybe False (== s) <$> b
-        searched = whenE (visibleB `onPage` "search") pressedE
-        downloaded = whenE (visibleB `onPage` "downloads") pressedE
+    let onPage b s = maybe False (== showT s) <$> b
+        searched = whenE (visibleB `onPage` Search) pressedE
+        downloaded = whenE (visibleB `onPage` Downloads) pressedE
+        countE e = accumB (0 :: Int) ((+ 1) <$ e)
 
-    let countE e = accumB (0 :: Int) ((+ 1) <$ e)
     searchCount <- countE searched
     downloadCount <- countE downloaded
 
-    sink searchedLabel #label $ (T.pack . show) <$> searchCount
-    sink downloadedLabel #label $ (T.pack . show) <$> downloadCount
+    sink searchedLabel #label $ showT <$> searchCount
+    sink downloadedLabel #label $ showT <$> downloadCount
 
     #showAll window
 
