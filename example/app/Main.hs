@@ -31,8 +31,6 @@ import GI.Gtk
     , SignalProxy(..)
     )
 
-doWhen f x = fmap (const f) x
-
 data StackPage = Search | Downloads
 
 instance Show StackPage where
@@ -49,7 +47,7 @@ networkDescription = do
 
     window <- castB b "window" Window
     destroyE <- signalE0 window #destroy
-    reactimate $ mainQuit `doWhen` destroyE
+    reactimate $ mainQuit <$ destroyE
 
     stack <- castB b "stack" Stack
     visibleB <- propB stack #visibleChildName
