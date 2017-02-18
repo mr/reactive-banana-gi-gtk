@@ -96,6 +96,8 @@ signalAddHandler self signal f = do
 
 -- | Create an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Signals.SignalProxy'. For making signalE# functions.
+-- Provides the fire method from 'Reactive.Banana.Frameworks.newAddHandler'
+-- for creating a callback.
 signalEN
     ::
         ( SignalInfo info
@@ -169,7 +171,8 @@ propB self attr = do
     initV <- get self attr
     stepper initV e
 
--- | Alternative to 'Data.GI.Base.Attributes.AttrOp' for use with 'sink'
+-- | Alternative to 'Data.GI.Base.Attributes.AttrOp' for use with 'sink'.
+-- Accepts a 'Reactive.Banana.Behavior' and a GTK Attribute
 data AttrOpBehavior self tag where
     (:==)
         ::
@@ -297,5 +300,12 @@ sink1 self (attr ::~~ b) = do
     e <- changes b
     reactimate' $ (fmap $ \x -> set self [attr ::~ x]) <$> e
 
+-- "Animate" an attribute with a 'Reactive.Banana.Behavior'.
+--
+-- @
+-- clickedE <- signalE0 button #clicked
+-- clickedCount <- accumB (0 :: Int) ((+ 1) <$ clickedE)
+-- sink myLabel [#label :== (T.pack . show) <$> clickedCount]
+-- @
 sink :: GObject self => self -> [AttrOpBehavior self AttrSet] -> MomentIO ()
 sink self attrBs = mapM_ (sink1 self) attrBs

@@ -1,14 +1,13 @@
 name:                reactive-banana-gi-gtk
 version:             0.1.0.0
-synopsis:            Initial project template from stack
-description:         Please see README.md
-homepage:            https://github.com/githubuser/reactive-banana-gi-gtk#readme
-license:             BSD3
+synopsis:            Simple reactive programming with GTK GObject Introspection
+description:         Create Events and Behaviors from GTK signals and attributes. Also supports sinking to attributes.
+homepage:            https://github.com/mr/reactive-banana-gi-gtk
+license:             PublicDomain
 license-file:        LICENSE
-author:              Author name here
-maintainer:          example@example.com
-copyright:           2017 Author name here
-category:            Web
+author:              Matthew Robinson
+maintainer:          mrobinson7627@gmail.com
+category:            Development
 build-type:          Simple
 cabal-version:       >=1.10
 
