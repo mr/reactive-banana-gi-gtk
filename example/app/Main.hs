@@ -66,8 +66,8 @@ networkDescription = do
     searchCount <- countE searched
     downloadCount <- countE downloaded
 
-    sink searchedLabel #label $ showT <$> searchCount
-    sink downloadedLabel #label $ showT <$> downloadCount
+    sink searchedLabel [#label :== showT <$> searchCount]
+    sink downloadedLabel [#label :== showT <$> downloadCount]
 
     #showAll window
 

@@ -1,6 +1,8 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 
 module Reactive.Banana.GI.Gtk
     ( BuilderCastException(..)
@@ -12,6 +14,7 @@ module Reactive.Banana.GI.Gtk
     , propE
     , propB
     , sink
+    , AttrOpBehavior(..)
     ) where
 
 import Reactive.Banana
@@ -23,7 +26,7 @@ import Control.Monad.IO.Class
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Data.Text (Text)
-import GHC.ForeignPtr (ForeignPtr(..))
+import GHC.TypeLits
 
 import Data.GI.Base
 import Data.GI.Base.Attributes
@@ -31,6 +34,8 @@ import Data.GI.Base.Attributes
     , AttrInfo(..)
     , AttrLabel(..)
     , AttrGetC(..)
+    , AttrOpAllowed(..)
+    , AttrOpTag(..)
     )
 
 import Data.GI.Base.Overloading
@@ -65,7 +70,7 @@ castB
     :: (IsBuilder a, GObject o, MonadIO m)
     => a
     -> Text
-    -> (ForeignPtr o -> o)
+    -> (ManagedPtr o -> o)
     -> m o
 castB builder ident gtype =
     liftIO $ do
@@ -136,18 +141,161 @@ signalE1 self signal = signalEN self signal id
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Attributes.AttrLabelProxy' that produces one argument.
+propE
+    ::
+        ( GObject self
+        , AttrGetC info self attr result
+        , KnownSymbol (AttrLabel info)
+        )
+    => self
+    -> AttrLabelProxy (attr :: Symbol)
+    -> MomentIO (Event result)
 propE self attr = do
-    e <- signalEN self (PropertyNotify attr) id
+    e <- signalE1 self (PropertyNotify attr)
     (const $ get self attr) `mapEventIO` e
 
 -- | stepper on 'propE'
+propB
+    ::
+        ( GObject self
+        , AttrGetC info self attr result
+        , KnownSymbol (AttrLabel info)
+        )
+    => self
+    -> AttrLabelProxy (attr :: Symbol)
+    -> MomentIO (Behavior result)
 propB self attr = do
     e <- propE self attr
     initV <- get self attr
     stepper initV e
 
-sink self attr b = do
+-- | Alternative to 'Data.GI.Base.Attributes.AttrOp' for use with 'sink'
+data AttrOpBehavior self tag where
+    (:==)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , AttrOpAllowed tag info self
+            , AttrSetTypeConstraint info b
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior b
+        -> AttrOpBehavior self tag
+
+    (:==>)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , AttrOpAllowed tag info self
+            , AttrSetTypeConstraint info b
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior (IO b)
+        -> AttrOpBehavior self tag
+
+    (:~~)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , tag ~ AttrSet
+            , AttrOpAllowed AttrSet info self
+            , AttrOpAllowed AttrGet info self
+            , AttrSetTypeConstraint info b
+            , a ~ AttrGetType info
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior (a -> b)
+        -> AttrOpBehavior self tag
+
+    (:~~>)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , tag ~ AttrSet
+            , AttrOpAllowed AttrSet info self
+            , AttrOpAllowed AttrGet info self
+            , AttrSetTypeConstraint info b
+            , a ~ AttrGetType info
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior (a -> IO b)
+        -> AttrOpBehavior self tag
+
+    (::==)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , tag ~ AttrSet
+            , AttrOpAllowed tag info self
+            , AttrSetTypeConstraint info b
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior (self -> b)
+        -> AttrOpBehavior self tag
+
+    (::~~)
+        ::
+            ( HasAttributeList self
+            , info ~ ResolveAttribute attr self
+            , AttrInfo info
+            , AttrBaseTypeConstraint info self
+            , tag ~ AttrSet
+            , AttrOpAllowed AttrSet info self
+            , AttrOpAllowed AttrGet info self
+            , AttrSetTypeConstraint info b
+            , a ~ AttrGetType info
+            )
+        => AttrLabelProxy (attr :: Symbol)
+        -> Behavior (self -> a -> b)
+        -> AttrOpBehavior self tag
+
+infixr 0 :==
+infixr 0 :==>
+infixr 0 :~~
+infixr 0 ::==
+infixr 0 ::~~
+
+sink1 :: GObject self => self -> AttrOpBehavior self AttrSet -> MomentIO ()
+sink1 self (attr :== b) = do
     x <- valueBLater b
     liftIOLater $ set self [attr := x]
     e <- changes b
     reactimate' $ (fmap $ \x -> set self [attr := x]) <$> e
+sink1 self (attr :==> b) = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr :=> x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr :=> x]) <$> e
+sink1 self (attr :~~ b) = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr :~ x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr :~ x]) <$> e
+sink1 self (attr :~~> b) = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr :~> x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr :~> x]) <$> e
+sink1 self (attr ::== b) = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr ::= x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr ::= x]) <$> e
+sink1 self (attr ::~~ b) = do
+    x <- valueBLater b
+    liftIOLater $ set self [attr ::~ x]
+    e <- changes b
+    reactimate' $ (fmap $ \x -> set self [attr ::~ x]) <$> e
+
+sink :: GObject self => self -> [AttrOpBehavior self AttrSet] -> MomentIO ()
+sink self attrBs = mapM_ (sink1 self) attrBs
