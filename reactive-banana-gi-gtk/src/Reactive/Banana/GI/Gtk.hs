@@ -11,8 +11,8 @@ module Reactive.Banana.GI.Gtk
     , signalEN
     , signalE0
     , signalE1
-    , propE
-    , propB
+    , attrE
+    , attrB
     , sink
     , AttrOpBehavior(..)
     ) where
@@ -143,7 +143,7 @@ signalE1 self signal = signalEN self signal id
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Attributes.AttrLabelProxy' that produces one argument.
-propE
+attrE
     ::
         ( GObject self
         , AttrGetC info self attr result
@@ -152,12 +152,12 @@ propE
     => self
     -> AttrLabelProxy (attr :: Symbol)
     -> MomentIO (Event result)
-propE self attr = do
+attrE self attr = do
     e <- signalE1 self (PropertyNotify attr)
     (const $ get self attr) `mapEventIO` e
 
--- | stepper on 'propE'
-propB
+-- | stepper on 'attrE'
+attrB
     ::
         ( GObject self
         , AttrGetC info self attr result
@@ -166,8 +166,8 @@ propB
     => self
     -> AttrLabelProxy (attr :: Symbol)
     -> MomentIO (Behavior result)
-propB self attr = do
-    e <- propE self attr
+attrB self attr = do
+    e <- attrE self attr
     initV <- get self attr
     stepper initV e
 

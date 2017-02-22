@@ -50,7 +50,7 @@ networkDescription = do
     reactimate $ mainQuit <$ destroyE
 
     stack <- castB b "stack" Stack
-    visibleB <- propB stack #visibleChildName
+    visibleB <- attrB stack #visibleChildName
 
     button <- castB b "back_button" Button
     pressedE <- signalE0 button #clicked
