@@ -232,41 +232,10 @@ data AttrOpBehavior self tag where
         -> Behavior (a -> IO b)
         -> AttrOpBehavior self tag
 
-    (::==)
-        ::
-            ( HasAttributeList self
-            , info ~ ResolveAttribute attr self
-            , AttrInfo info
-            , AttrBaseTypeConstraint info self
-            , tag ~ AttrSet
-            , AttrOpAllowed tag info self
-            , AttrSetTypeConstraint info b
-            )
-        => AttrLabelProxy (attr :: Symbol)
-        -> Behavior (self -> b)
-        -> AttrOpBehavior self tag
-
-    (::~~)
-        ::
-            ( HasAttributeList self
-            , info ~ ResolveAttribute attr self
-            , AttrInfo info
-            , AttrBaseTypeConstraint info self
-            , tag ~ AttrSet
-            , AttrOpAllowed AttrSet info self
-            , AttrOpAllowed AttrGet info self
-            , AttrSetTypeConstraint info b
-            , a ~ AttrGetType info
-            )
-        => AttrLabelProxy (attr :: Symbol)
-        -> Behavior (self -> a -> b)
-        -> AttrOpBehavior self tag
-
 infixr 0 :==
 infixr 0 :==>
 infixr 0 :~~
-infixr 0 ::==
-infixr 0 ::~~
+infixr 0 :~~>
 
 sink1 :: GObject self => self -> AttrOpBehavior self AttrSet -> MomentIO ()
 sink1 self (attr :== b) = do
@@ -289,16 +258,6 @@ sink1 self (attr :~~> b) = do
     liftIOLater $ set self [attr :~> x]
     e <- changes b
     reactimate' $ (fmap $ \x -> set self [attr :~> x]) <$> e
-sink1 self (attr ::== b) = do
-    x <- valueBLater b
-    liftIOLater $ set self [attr ::= x]
-    e <- changes b
-    reactimate' $ (fmap $ \x -> set self [attr ::= x]) <$> e
-sink1 self (attr ::~~ b) = do
-    x <- valueBLater b
-    liftIOLater $ set self [attr ::~ x]
-    e <- changes b
-    reactimate' $ (fmap $ \x -> set self [attr ::~ x]) <$> e
 
 -- "Animate" an attribute with a 'Reactive.Banana.Behavior'.
 --
