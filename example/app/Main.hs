@@ -20,15 +20,11 @@ import GI.Gtk
     , builderAddFromFile
     , builderNew
     , Window(..)
-    , HeaderBar(..)
     , Stack(..)
     , Button(..)
     , Label(..)
     , GError(..)
-    , get
-    , on
     , gerrorMessage
-    , SignalProxy(..)
     )
 
 data StackPage = Search | Downloads
