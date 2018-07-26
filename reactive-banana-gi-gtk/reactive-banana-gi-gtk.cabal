@@ -5,7 +5,7 @@ description:         Create Events and Behaviors from GTK signals and attributes
 homepage:            https://github.com/mr/reactive-banana-gi-gtk
 license:             PublicDomain
 license-file:        LICENSE
-author:              Matthew Robinson
+author:              Megan Robinson
 maintainer:          mrobinson7627@gmail.com
 category:            Development
 build-type:          Simple
