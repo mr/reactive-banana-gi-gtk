@@ -19,6 +19,7 @@ executable example-exe
   build-depends:       base
                      , reactive-banana
                      , gi-gtk
+                     , gi-gdk
                      , reactive-banana-gi-gtk
                      , text
   default-language:    Haskell2010

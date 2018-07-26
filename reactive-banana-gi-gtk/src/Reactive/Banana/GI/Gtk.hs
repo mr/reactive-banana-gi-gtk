@@ -11,6 +11,8 @@ module Reactive.Banana.GI.Gtk
     , signalEN
     , signalE0
     , signalE1
+    , signalE0R
+    , signalE1R
     , attrE
     , attrB
     , sink
@@ -87,11 +89,12 @@ signalAddHandler
         )
     => self
     -> SignalProxy self info
-    -> ((a -> IO ()) -> HaskellCallbackType info)
+    -> ((a -> IO b) -> HaskellCallbackType info)
+    -> b
     -> IO (AddHandler a)
-signalAddHandler self signal f = do
+signalAddHandler self signal f b = do
     (addHandler, fire) <- newAddHandler
-    on self signal (f fire)
+    on self signal (f $ \x -> fire x >> return b)
     return addHandler
 
 -- | Create an 'Reactive.Banana.Event' from
@@ -105,17 +108,18 @@ signalEN
         )
     => self
     -> SignalProxy self info
-    -> ((a -> IO ()) -> HaskellCallbackType info)
+    -> ((a -> IO b) -> HaskellCallbackType info)
+    -> b
     -> MomentIO (Event a)
-signalEN self signal f = do
-    addHandler <- liftIO $ signalAddHandler self signal f
+signalEN self signal f b = do
+    addHandler <- liftIO $ signalAddHandler self signal f b
     fromAddHandler addHandler
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Signals.SignalProxy' that produces nothing.
 --
 -- @
--- destroyE <- signalE1 window #destroy
+-- destroyE <- signalE0 window #destroy
 -- @
 signalE0
     ::
@@ -126,7 +130,7 @@ signalE0
     => self
     -> SignalProxy self info
     -> MomentIO (Event ())
-signalE0 self signal =  signalEN self signal ($ ())
+signalE0 self signal =  signalEN self signal ($ ()) ()
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Signals.SignalProxy' that produces one argument.
@@ -139,7 +143,41 @@ signalE1
     => self
     -> SignalProxy self info
     -> MomentIO (Event a)
-signalE1 self signal = signalEN self signal id
+signalE1 self signal = signalEN self signal id ()
+
+-- | Get an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Signals.SignalProxy' that produces nothing.
+-- The given value is returned in the GTK callback
+--
+-- @
+-- keyPressedE <- signalE1R widget #keyPressedEvent False
+-- @
+signalE0R
+    ::
+        ( HaskellCallbackType info ~ IO b
+        , SignalInfo info
+        , GObject self
+        )
+    => self
+    -> SignalProxy self info
+    -> b
+    -> MomentIO (Event ())
+signalE0R self signal b = signalEN self signal ($ ()) b
+
+-- | Get an 'Reactive.Banana.Event' from
+-- a 'Data.GI.Base.Signals.SignalProxy' that produces one argument.
+-- The given value is returned in the GTK callback
+signalE1R
+    ::
+        ( HaskellCallbackType info ~ (a -> IO b)
+        , SignalInfo info
+        , GObject self
+        )
+    => self
+    -> SignalProxy self info
+    -> b
+    -> MomentIO (Event a)
+signalE1R self signal b = signalEN self signal id b
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Attributes.AttrLabelProxy' that produces one argument.

@@ -19,6 +19,7 @@ import GI.Gtk
     ( mainQuit
     , builderAddFromFile
     , builderNew
+    , get
     , Window(..)
     , Stack(..)
     , Button(..)
@@ -26,6 +27,7 @@ import GI.Gtk
     , GError(..)
     , gerrorMessage
     )
+import GI.Gdk.Structs.EventKey (EventKey(..))
 
 data StackPage = Search | Downloads
 
@@ -50,6 +52,9 @@ networkDescription = do
 
     button <- castB b "back_button" Button
     pressedE <- signalE0 button #clicked
+
+    keyPressE <- signalE1R window #keyPressEvent False
+    reactimate $ (\e -> get e #string >>= print) <$> keyPressE
 
     downloadedLabel <- castB b "download_count" Label
     searchedLabel <- castB b "search_count" Label
