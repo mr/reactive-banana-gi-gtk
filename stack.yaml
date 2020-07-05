@@ -1,13 +1,15 @@
-resolver: nightly-2018-06-10
+resolver: lts-16.3
 packages:
-- 'reactive-banana-gi-gtk'
-- 'example'
-extra-deps: [
-  'reactive-banana-1.2.0.0',
-  'gi-gtk-3.0.23',
-  'gi-gdk-3.0.16',
-  'gi-gdkpixbuf-2.0.16',
-  'gi-gio-2.0.18',
-  'gi-pango-1.0.16'
-]
+  - 'reactive-banana-gi-gtk'
+  - 'example'
+extra-deps:
+  - 'reactive-banana-1.2.1.0'
+  - 'gi-gtk-3.0.33'
+  - 'gi-gdk-3.0.22'
+  - 'gi-gdkpixbuf-2.0.23'
+  - 'gi-gio-2.0.26'
+  - 'gi-pango-1.0.22'
+  - 'gi-gsk-4.0.1'
+  - 'hashable-1.3.0.0'
+  - 'semigroups-0.18.5'
 pvp-bounds: both

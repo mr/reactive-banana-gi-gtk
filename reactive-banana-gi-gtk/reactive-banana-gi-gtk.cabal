@@ -1,5 +1,5 @@
 name:                reactive-banana-gi-gtk
-version:             0.4.0.2
+version:             0.4.1.0
 synopsis:            Simple reactive programming with GTK GObject Introspection
 description:         Create Events and Behaviors from GTK signals and attributes. Also supports sinking to attributes.
 homepage:            https://github.com/mr/reactive-banana-gi-gtk
@@ -16,7 +16,7 @@ library
   exposed-modules:     Reactive.Banana.GI.Gtk
   build-depends:       base >= 4.7 && < 5,
                        reactive-banana < 1.3
-                     , gi-gtk >= 3.0.1.1 && < 3.1
+                     , gi-gtk >= 3.0.1.1 && < 5.0
                      , haskell-gi-base >= 0.20 && < 0.24
                      , transformers >= 0.5.2.0 && < 0.6
                      , text >= 1.2.2.1 && < 1.3
