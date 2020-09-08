@@ -24,7 +24,6 @@ import Reactive.Banana.Frameworks
 
 import Data.Typeable
 import Control.Exception
-import Control.Monad.IO.Class
 import Data.Maybe (fromJust)
 import qualified Data.Text as T
 import Data.Text (Text)
@@ -48,6 +47,7 @@ import Data.GI.Base.Overloading
 import Data.GI.Base.Signals
     ( SignalInfo(..)
     , GObjectNotifySignalInfo(..)
+    , disconnectSignalHandler
     )
 import GI.Gtk
     ( GObject
@@ -91,11 +91,11 @@ signalAddHandler
     -> SignalProxy self info
     -> ((a -> IO b) -> HaskellCallbackType info)
     -> b
-    -> IO (AddHandler a)
-signalAddHandler self signal f b = do
-    (addHandler, fire) <- newAddHandler
-    on self signal (f $ \x -> fire x >> return b)
-    return addHandler
+    -> AddHandler a
+signalAddHandler self signal f b =
+  AddHandler $ \fire ->
+  on self signal (f $ \x -> fire x >> return b) >>=
+  pure . disconnectSignalHandler self
 
 -- | Create an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Signals.SignalProxy'. For making signalE# functions.
@@ -111,9 +111,8 @@ signalEN
     -> ((a -> IO b) -> HaskellCallbackType info)
     -> b
     -> MomentIO (Event a)
-signalEN self signal f b = do
-    addHandler <- liftIO $ signalAddHandler self signal f b
-    fromAddHandler addHandler
+signalEN self signal f b =
+    fromAddHandler $ signalAddHandler self signal f b
 
 -- | Get an 'Reactive.Banana.Event' from
 -- a 'Data.GI.Base.Signals.SignalProxy' that produces nothing.
